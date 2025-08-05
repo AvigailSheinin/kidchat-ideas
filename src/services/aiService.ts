@@ -5,6 +5,7 @@ export interface AIConfig {
   apiKey?: string;
   model: string;
   temperature: number;
+  provider: 'openai' | 'gemini';
 }
 
 export interface ChatContext {
@@ -17,7 +18,7 @@ export interface ChatContext {
 export class AIService {
   private config: AIConfig;
 
-  constructor(config: AIConfig = { model: 'gpt-4o', temperature: 0.7 }) {
+  constructor(config: AIConfig = { model: 'gpt-4o', temperature: 0.7, provider: 'openai' }) {
     this.config = config;
   }
 
@@ -30,8 +31,9 @@ export class AIService {
     }
 
     try {
-      // TODO: Implement actual OpenAI API call
-      const response = await this.callOpenAI(prompt, context);
+      const response = this.config.provider === 'gemini' 
+        ? await this.callGemini(prompt, context)
+        : await this.callOpenAI(prompt, context);
       return response;
     } catch (error) {
       console.error('AI API Error:', error);
@@ -62,6 +64,31 @@ export class AIService {
 
     const data = await response.json();
     return data.choices[0]?.message?.content || this.getScriptedResponse(prompt, context);
+  }
+
+  private async callGemini(prompt: string, context: ChatContext): Promise<string> {
+    const systemPrompt = this.buildSystemPrompt(context);
+    
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.config.model}:generateContent?key=${this.config.apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `${systemPrompt}\n\nUser: ${prompt}`
+          }]
+        }],
+        generationConfig: {
+          temperature: this.config.temperature,
+          maxOutputTokens: 150,
+        }
+      }),
+    });
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || this.getScriptedResponse(prompt, context);
   }
 
   private buildSystemPrompt(context: ChatContext): string {
@@ -127,6 +154,16 @@ Focus on teaching:
 
   setApiKey(apiKey: string) {
     this.config.apiKey = apiKey;
+  }
+
+  setProvider(provider: 'openai' | 'gemini', model?: string) {
+    this.config.provider = provider;
+    if (model) {
+      this.config.model = model;
+    } else {
+      // Set default models for each provider
+      this.config.model = provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o';
+    }
   }
 }
 

@@ -9,16 +9,19 @@ const Index = () => {
   const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
 
   useEffect(() => {
-    // Check if API key exists in localStorage
-    const savedApiKey = localStorage.getItem('openai_api_key');
-    if (savedApiKey) {
+    // Check if API key and provider exist in localStorage
+    const savedApiKey = localStorage.getItem('ai_api_key');
+    const savedProvider = localStorage.getItem('ai_provider') as 'openai' | 'gemini';
+    
+    if (savedApiKey && savedProvider) {
+      aiService.setProvider(savedProvider);
       aiService.setApiKey(savedApiKey);
     }
   }, []);
 
   const handleStartLesson = () => {
     // Check if we should prompt for API key
-    const savedApiKey = localStorage.getItem('openai_api_key');
+    const savedApiKey = localStorage.getItem('ai_api_key');
     if (!savedApiKey) {
       setShowApiKeyDialog(true);
     } else {
